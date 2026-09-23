@@ -250,8 +250,22 @@ export const fetchPatientLocation = async (patientId) => {
     return response.data;
 };
 
-export const linkPatientByEmail = async (email) => {
-    const response = await client.post(`/link-patient-by-email?email=${encodeURIComponent(email)}`);
+export const linkPatientByEmail = async (email, caregiverEmail = null) => {
+    let url = `/link-patient-by-email?email=${encodeURIComponent(email)}`;
+    if (caregiverEmail) {
+        url += `&caregiver_email=${encodeURIComponent(caregiverEmail)}`;
+    }
+    const response = await client.post(url);
+    return response.data;
+};
+
+export const assignCaregiverToPatient = async (patientId, caregiverEmail) => {
+    const response = await client.post(`/assign-caregiver?patient_id=${patientId}&caregiver_email=${encodeURIComponent(caregiverEmail)}`);
+    return response.data;
+};
+
+export const fetchCaregivers = async () => {
+    const response = await client.get('/caregivers');
     return response.data;
 };
 

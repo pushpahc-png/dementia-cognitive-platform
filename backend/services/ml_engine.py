@@ -111,19 +111,19 @@ def predict_patient_risk(db: Session, patient_id: int):
 # 1. Personal Memory Graph Engine
 def get_memory_graph(db: Session, patient_id: int):
     patient = db.query(User).filter(User.id == patient_id).first()
-    patient_name = patient.full_name if patient else "Rachana"
+    patient_name = patient.full_name if patient else "Patient"
 
     nodes = [
         { "id": "p1", "name": patient_name, "type": "Patient", "desc": "User / Patient" },
-        { "id": "p2", "name": "Rachana D N", "type": "Family", "relation": "Daughter", "desc": "Your daughter who visits daily & set up this Memory Companion." },
-        { "id": "p3", "name": "Lakshmi K R", "type": "Caregiver", "relation": "Primary Caregiver", "desc": "Lives nearby, manages daily medication & healthy meals." },
-        { "id": "p4", "name": "Dr. Pushpa H C", "type": "Doctor", "relation": "Specialist Neurologist", "desc": "Oversees your care plan and memory health." },
+        { "id": "p2", "name": "Primary Family Contact", "type": "Family", "relation": "Family", "desc": "Assists with daily care & check-ins." },
+        { "id": "p3", "name": "Primary Caregiver", "type": "Caregiver", "relation": "Primary Caregiver", "desc": "Manages daily routine & medication." },
+        { "id": "p4", "name": "Specialist Doctor", "type": "Doctor", "relation": "Specialist Neurologist", "desc": "Oversees care plan and memory health." },
         { "id": "loc1", "name": "Home Safe Zone", "type": "Location", "desc": "Main comfortable residence." },
         { "id": "loc2", "name": "Neurology Medical Center", "type": "Location", "desc": "Doctor consultation clinic." },
     ]
 
     links = [
-        { "source": "p1", "target": "p2", "label": "Cared by Daughter" },
+        { "source": "p1", "target": "p2", "label": "Cared by Family" },
         { "source": "p1", "target": "p3", "label": "Assisted by Caregiver" },
         { "source": "p1", "target": "p4", "label": "Supervised by Neurologist" },
         { "source": "p1", "target": "loc1", "label": "Safe Location" },
@@ -133,19 +133,19 @@ def get_memory_graph(db: Session, patient_id: int):
     return { "patient_id": patient_id, "nodes": nodes, "links": links }
 
 # 2. Real-Time Cognitive Speech & Confusion Analyzer
-def analyze_cognitive_speech(speech_text: str, patient_name: str = "Rachana"):
-    text = speech_text.lower().trim() if speech_text else ""
+def analyze_cognitive_speech(speech_text: str, patient_name: str = "there"):
+    text = speech_text.lower().strip() if speech_text else ""
 
     if any(q in text for q in ["where am i", "where is this", "am i lost"]):
         return {
             "intent": "location_confusion",
-            "voice_response": f"You are safe in your home, {patient_name}. Your daughter Rachana and caregiver Lakshmi are monitoring you. You are completely safe.",
+            "voice_response": f"You are safe in your home, {patient_name}. Your family and care team are monitoring you. You are completely safe.",
             "action": "show_home_safe_zone"
         }
     elif any(q in text for q in ["who are you", "what is this app", "i forgot this app"]):
         return {
             "intent": "app_orientation",
-            "voice_response": f"Hello {patient_name}! I am your Memory Companion. Your daughter Rachana set me up to help you remember your people, medicines, and appointments.",
+            "voice_response": f"Hello {patient_name}! I am your Memory Companion. Your care team set me up to help you remember your people, medicines, and appointments.",
             "action": "play_family_intro"
         }
     elif any(q in text for q in ["i forgot", "what should i do", "what is next", "help me"]):
@@ -168,7 +168,7 @@ def get_caregiver_daily_summary(db: Session, patient_id: int):
 
     return {
         "summary_date": datetime.now(timezone.utc).strftime("%B %d, %Y"),
-        "patient_name": risk.get("patient_name", "Rachana"),
+        "patient_name": risk.get("patient_name", "Patient"),
         "cognitive_status": risk.get("status", "Stable Baseline"),
         "adherence_rate": f"{risk.get('adherence_pct', 100)}%",
         "sundowning_window": risk.get("sundowning_window", "16:00 - 18:00"),

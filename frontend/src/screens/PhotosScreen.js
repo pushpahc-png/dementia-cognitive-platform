@@ -206,19 +206,19 @@ export default function PhotosScreen({ navigation }) {
     };
 
     return (
-        <LinearGradient colors={['#1e1b4b', '#0f172a']} style={styles.container}>
+        <View style={styles.container}>
 
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={28} color="#1f1545" />
+                    <Ionicons name="arrow-back" size={24} color="#0f172a" />
                 </TouchableOpacity>
                 <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={styles.headerTitle}>Family & Care Team Directory</Text>
                     <Text style={styles.headerSub}>Spandana (Daughter), Lakshmi K R (Caregiver), Dr. Pushpa (Doctor)</Text>
                 </View>
                 <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addBtn}>
-                    <Ionicons name="add" size={30} color="#1f1545" />
+                    <Ionicons name="add" size={26} color="#0f172a" />
                 </TouchableOpacity>
             </View>
 
@@ -398,7 +398,7 @@ export default function PhotosScreen({ navigation }) {
                         <Text style={styles.label}>Person Full Name</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="e.g. Daughter Rachana D N"
+                            placeholder="e.g. Family Member Name"
                             placeholderTextColor="#888"
                             value={newTitle}
                             onChangeText={setNewTitle}
@@ -424,27 +424,25 @@ export default function PhotosScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: '#f8fafc' },
     header: {
-        paddingTop: 55, paddingBottom: 22, paddingHorizontal: 24,
-        backgroundColor: 'white', borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5
+        height: 64, paddingHorizontal: 16,
+        backgroundColor: 'white', borderBottomWidth: 1, borderColor: '#e2e8f0',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
     },
-    backBtn: { padding: 10, backgroundColor: '#f0ebff', borderRadius: 16 },
-    addBtn: { padding: 10, backgroundColor: '#f0ebff', borderRadius: 16 },
-    headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#1f1545' },
-    headerSub: { fontSize: 14, color: '#64748b', marginTop: 3 },
+    backBtn: { padding: 8 },
+    addBtn: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+    headerSub: { fontSize: 11, color: '#64748b', marginTop: 1 },
 
     heroCard: {
-        backgroundColor: 'white', marginHorizontal: 22, marginTop: 22,
-        borderRadius: 28, padding: 24,
-        shadowColor: '#7c3aed', shadowOpacity: 0.15, shadowRadius: 12, elevation: 5
+        backgroundColor: 'white', marginHorizontal: 20, marginTop: 16,
+        borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#e2e8f0'
     },
     heroHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
     heroTitle: { fontSize: 22, fontWeight: 'bold', color: '#1f1545' },

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import asyncio
 from datetime import datetime, timezone
 
@@ -46,7 +46,6 @@ def add_reminder(
     rem_db = services.create_reminder(db, reminder=reminder_in, user_id=target_id)
     
     try:
-        from services.background_tasks import dispatch_automated_alert
         reminder_time = reminder_in.time.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         delay_seconds = (reminder_time - now).total_seconds()
@@ -205,11 +204,27 @@ def link_patient(patient_id: int, current_user: models.User = Depends(get_curren
     return services.link_patient_to_user(db, patient_id, current_user)
 
 @router.post("/link-patient-by-email", response_model=schemas.UserResponse)
-def link_patient_by_email(email: str, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    result = services.link_patient_by_email(db, email, current_user)
+def link_patient_by_email(email: str, caregiver_email: Optional[str] = None, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    result = services.link_patient_by_email(db, email, current_user, caregiver_email)
     if not result:
         raise HTTPException(status_code=404, detail="Patient account not found with this email")
     return result
+
+@router.post("/assign-caregiver", response_model=schemas.UserResponse)
+def assign_caregiver_endpoint(
+    patient_id: int,
+    caregiver_email: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    patient, err = services.assign_caregiver_to_patient(db, patient_id, caregiver_email, current_user)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    return patient
+
+@router.get("/caregivers", response_model=List[schemas.UserResponse])
+def get_caregivers_endpoint(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return services.get_caregivers(db)
 
 @router.post("/messages", response_model=schemas.MessageResponse)
 def send_message(message_in: schemas.MessageCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fetchContacts, addContact } from '../api/client';
 
 export default function ContactsScreen({ navigation }) {
@@ -14,66 +13,162 @@ export default function ContactsScreen({ navigation }) {
     }, []);
 
     const loadContacts = async () => {
-        const data = await fetchContacts();
-        setContacts(data);
+        try {
+            const data = await fetchContacts();
+            setContacts(data);
+        } catch (e) {
+            console.log(e);
+        }
     };
 
     const handleAdd = async () => {
-        if (!name || !phone) return;
-        await addContact(name, phone);
-        setName('');
-        setPhone('');
-        loadContacts();
+        if (!name.trim() || !phone.trim()) return;
+        try {
+            await addContact(name.trim(), phone.trim());
+            setName('');
+            setPhone('');
+            loadContacts();
+            if (Platform.OS === 'web') window.alert('Contact saved successfully!');
+            else Alert.alert('Success', 'Contact saved successfully!');
+        } catch (e) {
+            console.log(e);
+        }
     };
 
     return (
-        <LinearGradient colors={['#3b185f', '#1a0b2e']} style={styles.container}>
+        <View style={styles.container}>
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#3b185f" />
+                    <Ionicons name="arrow-back" size={24} color="#0f172a" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Contacts</Text>
-                <View style={{width: 24}}/>
+                <Text style={styles.headerTitle}>Care Network & Contacts</Text>
+                <View style={{ width: 24 }} />
             </View>
+
             <View style={styles.content}>
                 <View style={styles.addForm}>
-                    <TextInput style={styles.input} placeholder="Name" value={name} onChangeText={setName}/>
-                    <TextInput style={styles.input} placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
+                    <Text style={styles.formTitle}>Add New Caregiver / Contact</Text>
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Full Name (e.g. Spandana / Lakshmi K R)" 
+                        placeholderTextColor="#94a3b8"
+                        value={name} 
+                        onChangeText={setName}
+                    />
+                    <TextInput 
+                        style={styles.input} 
+                        placeholder="Phone Number (e.g. +91 9876543210)" 
+                        placeholderTextColor="#94a3b8"
+                        value={phone} 
+                        onChangeText={setPhone} 
+                        keyboardType="phone-pad"
+                    />
                     <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-                        <Text style={{color: 'white', fontWeight: 'bold'}}>Add Contact</Text>
+                        <Text style={styles.addButtonText}>Save Contact</Text>
                     </TouchableOpacity>
                 </View>
 
                 <FlatList
                     data={contacts}
                     keyExtractor={(item) => item.id.toString()}
+                    showsVerticalScrollIndicator={false}
                     renderItem={({ item }) => (
                         <View style={styles.contactCard}>
-                            <View style={styles.avatarPlaceholder}>
-                                <Ionicons name="person" size={24} color="#aaa" />
+                            <View style={styles.avatarCircle}>
+                                <Ionicons name="person" size={22} color="#2563eb" />
                             </View>
-                            <View>
+                            <View style={{ flex: 1 }}>
                                 <Text style={styles.contactName}>{item.name}</Text>
                                 <Text style={styles.contactPhone}>{item.phone}</Text>
                             </View>
+                            <TouchableOpacity 
+                                style={styles.callButton}
+                                onPress={() => {
+                                    if (Platform.OS === 'web') window.alert(`Calling ${item.name} at ${item.phone}...`);
+                                    else Alert.alert('Calling', `Connecting to ${item.name} (${item.phone})...`);
+                                }}
+                            >
+                                <Ionicons name="call" size={18} color="#16a34a" />
+                            </TouchableOpacity>
                         </View>
                     )}
                 />
             </View>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, backgroundColor: 'white', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-    content: { flex: 1, padding: 20 },
-    addForm: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 20 },
-    input: { height: 40, borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 10 },
-    addButton: { backgroundColor: '#3b185f', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-    contactCard: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
-    avatarPlaceholder: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    contactName: { fontSize: 16, fontWeight: 'bold', color: '#111' },
-    contactPhone: { fontSize: 13, color: '#888', marginTop: 3 }
+    container: { flex: 1, backgroundColor: '#f8fafc' },
+    header: {
+        height: 64,
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderColor: '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    backButton: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+    content: { flex: 1, padding: 20, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    addForm: {
+        backgroundColor: '#ffffff',
+        padding: 20,
+        borderRadius: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
+    },
+    formTitle: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', marginBottom: 12 },
+    input: {
+        height: 44,
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        marginBottom: 10,
+        backgroundColor: '#f8fafc',
+        fontSize: 14,
+        color: '#0f172a'
+    },
+    addButton: {
+        backgroundColor: '#2563eb',
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 4
+    },
+    addButtonText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+    contactCard: {
+        backgroundColor: '#ffffff',
+        padding: 16,
+        borderRadius: 14,
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
+    },
+    avatarCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14
+    },
+    contactName: { fontSize: 15, fontWeight: 'bold', color: '#0f172a' },
+    contactPhone: { fontSize: 13, color: '#64748b', marginTop: 2 },
+    callButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#dcfce7',
+        justifyContent: 'center',
+        alignItems: 'center'
+    }
 });

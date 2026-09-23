@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, Image, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { login, getUserRole } from '../api/client';
 
 const showGlobalAlert = (title, msg) => {
@@ -14,10 +14,17 @@ const showGlobalAlert = (title, msg) => {
 export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
+        if (!email.trim() || !password.trim()) {
+            showGlobalAlert('Missing Information', 'Please enter your email and password.');
+            return;
+        }
+
+        setLoading(true);
         try {
-            await login(email, password);
+            await login(email.trim(), password.trim());
             const user = await getUserRole();
             
             showGlobalAlert('✅ Welcome!', `Welcome back, ${user.full_name}!`);
@@ -31,27 +38,27 @@ export default function LoginScreen({ navigation }) {
             }
         } catch (error) {
             showGlobalAlert('Login Failed', error.response?.data?.detail || 'Invalid email or password');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <LinearGradient colors={['#1e1b4b', '#0f172a']} style={styles.container}>
+        <View style={styles.container}>
             <View style={styles.card}>
                 <View style={styles.logoContainer}>
-                    <Image 
-                        source={{uri: 'https://cdn-icons-png.flaticon.com/512/3004/3004416.png'}} 
-                        style={styles.logo} 
-                    />
+                    <Ionicons name="git-network-outline" size={44} color="#ffffff" />
                 </View>
-                <Text style={styles.title}>DementiaCare Platform</Text>
-                <Text style={styles.subtitle}>Memory Companion & Care Network</Text>
+
+                <Text style={styles.title}>DementiaCare</Text>
+                <Text style={styles.subtitle}>Care • Connect • Support</Text>
                 
                 <View style={styles.formContainer}>
                     <Text style={styles.inputLabel}>Email Address</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Enter email address..."
-                        placeholderTextColor="#888"
+                        placeholder="e.g. user@dementiacare.org"
+                        placeholderTextColor="#94a3b8"
                         value={email}
                         onChangeText={setEmail}
                         keyboardType="email-address"
@@ -61,44 +68,129 @@ export default function LoginScreen({ navigation }) {
                     <Text style={styles.inputLabel}>Password</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Enter password..."
-                        placeholderTextColor="#888"
+                        placeholder="••••••••"
+                        placeholderTextColor="#94a3b8"
                         value={password}
                         onChangeText={setPassword}
                         secureTextEntry
                     />
                     
-                    <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
-                        <Text style={styles.primaryButtonText}>LOG IN</Text>
+                    <TouchableOpacity 
+                        style={[styles.primaryButton, loading && { opacity: 0.7 }]} 
+                        onPress={handleLogin}
+                        disabled={loading}
+                    >
+                        <Text style={styles.primaryButtonText}>
+                            {loading ? 'AUTHENTICATING...' : 'LOG IN'}
+                        </Text>
                     </TouchableOpacity>
                     
-                    <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Register')}>
-                        <Text style={styles.secondaryButtonText}>CREATE NEW ACCOUNT</Text>
+                    <TouchableOpacity 
+                        style={styles.secondaryButton} 
+                        onPress={() => navigation.navigate('Register')}
+                    >
+                        <Text style={styles.secondaryButtonText}>Create New Account</Text>
                     </TouchableOpacity>
                 </View>
             </View>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    container: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        backgroundColor: '#0f172a',
+        padding: 20 
+    },
     card: {
-        width: '90%', maxWidth: 520, backgroundColor: 'white', borderRadius: 32,
-        padding: 36, alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 12}, shadowOpacity: 0.3, shadowRadius: 24, elevation: 12
+        width: '100%', 
+        maxWidth: 440, 
+        backgroundColor: '#ffffff', 
+        borderRadius: 24,
+        padding: 32, 
+        alignItems: 'center', 
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 12 }, 
+        shadowOpacity: 0.25, 
+        shadowRadius: 20, 
+        elevation: 10
     },
-    logoContainer: { width: 110, height: 110, backgroundColor: '#f0f4ff', borderRadius: 55, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-    logo: { width: 70, height: 70 },
-    title: { fontSize: 34, fontWeight: 'bold', color: '#1e1b4b', textAlign: 'center' },
-    subtitle: { fontSize: 18, color: '#7c3aed', marginBottom: 32, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-    formContainer: { width: '100%' },
-    inputLabel: { fontSize: 18, fontWeight: 'bold', color: '#1e1b4b', marginBottom: 8 },
+    logoContainer: { 
+        width: 72, 
+        height: 72, 
+        backgroundColor: '#1e293b', 
+        borderRadius: 20, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    title: { 
+        fontSize: 26, 
+        fontWeight: 'bold', 
+        color: '#0f172a', 
+        textAlign: 'center' 
+    },
+    subtitle: { 
+        fontSize: 13, 
+        color: '#64748b', 
+        marginBottom: 24, 
+        fontWeight: '500', 
+        textAlign: 'center', 
+        marginTop: 2 
+    },
+    formContainer: { 
+        width: '100%' 
+    },
+    inputLabel: { 
+        fontSize: 13, 
+        fontWeight: '600', 
+        color: '#334155', 
+        marginBottom: 6 
+    },
     input: {
-        height: 60, backgroundColor: '#f8fafc', borderWidth: 2, borderColor: '#cbd5e1',
-        marginBottom: 20, paddingHorizontal: 20, borderRadius: 18, fontSize: 20, color: '#1e1b4b'
+        height: 48, 
+        backgroundColor: '#f8fafc', 
+        borderWidth: 1, 
+        borderColor: '#cbd5e1',
+        marginBottom: 16, 
+        paddingHorizontal: 16, 
+        borderRadius: 12, 
+        fontSize: 15, 
+        color: '#0f172a'
     },
-    primaryButton: { backgroundColor: '#7c3aed', paddingVertical: 18, borderRadius: 18, alignItems: 'center', marginBottom: 16, marginTop: 10 },
-    primaryButtonText: { color: 'white', fontWeight: 'bold', fontSize: 20, letterSpacing: 0.5 },
-    secondaryButton: { backgroundColor: '#f1f5f9', borderWidth: 2, borderColor: '#cbd5e1', paddingVertical: 18, borderRadius: 18, alignItems: 'center' },
-    secondaryButtonText: { color: '#1e1b4b', fontWeight: 'bold', fontSize: 18 }
+    primaryButton: { 
+        backgroundColor: '#2563eb', 
+        paddingVertical: 14, 
+        borderRadius: 12, 
+        alignItems: 'center', 
+        marginBottom: 12, 
+        marginTop: 6,
+        shadowColor: '#2563eb',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 2
+    },
+    primaryButtonText: { 
+        color: 'white', 
+        fontWeight: 'bold', 
+        fontSize: 15, 
+        letterSpacing: 0.5 
+    },
+    secondaryButton: { 
+        backgroundColor: '#f1f5f9', 
+        paddingVertical: 13, 
+        borderRadius: 12, 
+        alignItems: 'center' 
+    },
+    secondaryButtonText: { 
+        color: '#334155', 
+        fontWeight: '600', 
+        fontSize: 14 
+    }
 });

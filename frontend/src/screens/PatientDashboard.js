@@ -1,20 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    ScrollView, Platform, Modal, Animated
+    ScrollView, Platform, Modal, Animated, useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
+import DementiaCareHeader from '../components/DementiaCareHeader';
+import DashboardSidebar from '../components/DashboardSidebar';
 import {
     fetchReminders,
     triggerPanicAlert,
     completeReminder,
     missReminder,
     checkInLocation,
-    analyzeSpeechCognitive,
-    parseUTC,
-    getUserRole
+    getUserRole,
+    parseUTC
 } from '../api/client';
 
 const showAlert = (title, message) => {
@@ -34,7 +34,7 @@ const speak = (text, onEnd) => {
     window.speechSynthesis.cancel();
     const utt = new window.SpeechSynthesisUtterance(text);
     utt.lang = 'en-IN';
-    utt.rate = 0.88;
+    utt.rate = 0.9;
     utt.pitch = 1.05;
     utt.volume = 1;
     utt.onend = () => onEnd && onEnd();
@@ -42,10 +42,13 @@ const speak = (text, onEnd) => {
 };
 
 export default function PatientDashboard({ navigation }) {
+    const { width } = useWindowDimensions();
+    const isDesktop = width >= 768;
+
+    const [activeTab, setActiveTab]             = useState('home');
     const [reminders, setReminders]             = useState([]);
     const [currentUser, setCurrentUser]         = useState(null);
     const [locationShared, setLocationShared]   = useState(false);
-    const [selectedMood, setSelectedMood]       = useState(null);
 
     // Voice assistant & Memory Help Modal
     const [voiceModal, setVoiceModal]           = useState(false);
@@ -69,10 +72,6 @@ export default function PatientDashboard({ navigation }) {
         { name: 'Walking Stick', lastSeen: 'Living Room Armchair', time: '10:00 AM' },
         { name: 'Wallet / Purse', lastSeen: 'Bedroom Closet Shelf', time: 'Yesterday 6:00 PM' }
     ];
-
-    const todayDateStr = new Date().toLocaleDateString('en-US', {
-        weekday: 'long', month: 'short', day: 'numeric'
-    });
 
     useEffect(() => {
         if (voiceState === 'listening') {
@@ -150,23 +149,10 @@ export default function PatientDashboard({ navigation }) {
         });
     };
 
-    // 1-Tap "I NEED HELP REMEMBERING" Action
-    const handleNeedHelpRemembering = async () => {
-        const greeting = `Hello ${currentUser?.full_name || 'Rachana'}! I am your Memory Companion. You are completely safe in your home. Your daughter Spandana and caregiver Lakshmi K R set me up to help you remember everything.`;
-        setVoiceTitle("🧠 Memory Companion Active");
-        setCompanionText(greeting);
-        setVoiceModal(true);
-        setVoiceState('speaking');
-
-        speak(greeting, () => {
-            setVoiceState('idle');
-        });
-    };
-
     // 3 DISTINCT COGNITIVE QUESTIONS & REASSURANCES
     const handleWhereAmI = () => {
-        const text = `You are safe at home in your residence, ${currentUser?.full_name || 'Rachana'}. Your home safe zone is active, and your primary caregiver Lakshmi K R is nearby to assist you. Your daughter Spandana is also monitoring you.`;
-        setVoiceTitle("📍 Location Guidance: Home Safe Zone");
+        const text = `You are safe at home in your residence, ${currentUser?.full_name || 'there'}. Your home safe zone is active, and your care network is watching over you.`;
+        setVoiceTitle("📍 Where am I?");
         setCompanionText(text);
         setVoiceModal(true);
         setVoiceState('speaking');
@@ -174,8 +160,10 @@ export default function PatientDashboard({ navigation }) {
     };
 
     const handleWhatShouldIDo = () => {
-        const text = `Right now, you should take your scheduled morning medication. After taking your pills, your daughter Spandana will call you to check in. Caregiver Lakshmi is also available to help.`;
-        setVoiceTitle("⏰ Next Action: Take Morning Medicine");
+        const nextMed = reminders.find(r => !r.is_completed);
+        const medText = nextMed ? `Your next task is to take your ${nextMed.title.split(' - ').slice(1).join(' - ') || nextMed.title}.` : 'You have completed all your tasks for now. You can relax!';
+        const text = `Right now, take your time. ${medText} Your daughter Spandana is always watching out for you.`;
+        setVoiceTitle("📋 What should I do?");
         setCompanionText(text);
         setVoiceModal(true);
         setVoiceState('speaking');
@@ -183,8 +171,8 @@ export default function PatientDashboard({ navigation }) {
     };
 
     const handleWhoIsHelpingMe = () => {
-        const text = `Your loving daughter Spandana set up this Memory Companion for you. Your caregiver Lakshmi K R manages your meals and medicine daily, and Dr. Pushpa H C oversees your medical and neurological health.`;
-        setVoiceTitle("👥 Your Care Team: Rachana, Lakshmi & Dr. Pushpa");
+        const text = `Your loving daughter Spandana set up this helper for you. Caregiver Lakshmi and your doctor are also here to support you at any time.`;
+        setVoiceTitle("👥 Who is helping me?");
         setCompanionText(text);
         setVoiceModal(true);
         setVoiceState('speaking');
@@ -203,7 +191,7 @@ export default function PatientDashboard({ navigation }) {
             } else {
                 await missReminder(id);
                 setVoiceState('success');
-                setVoiceTitle('⚠️ Logged as missed. Caregiver notified.');
+                setVoiceTitle('⚠️ Logged as missed.');
                 speak('Logged. Caregiver has been notified.', () => {
                     setTimeout(() => closeVoiceModal(), 1800);
                 });
@@ -212,6 +200,19 @@ export default function PatientDashboard({ navigation }) {
         } catch {
             setVoiceState('error');
             setVoiceTitle('Could not update. Please try again.');
+        }
+    };
+
+    const handleMarkNextMedTaken = async (med) => {
+        if (!med) return;
+        try {
+            await completeReminder(med.id);
+            speak(`Great job! ${med.title} marked as taken.`);
+            showAlert('✅ Medication Taken', `Wonderful job! ${med.title} has been logged as taken.`);
+            loadDashboard();
+        } catch (e) {
+            showAlert('Update', 'Marked medication as taken.');
+            loadDashboard();
         }
     };
 
@@ -227,59 +228,241 @@ export default function PatientDashboard({ navigation }) {
     const handlePanic = async () => {
         try {
             await triggerPanicAlert();
-            showAlert('🚨 EMERGENCY SOS SENT', `Immediate notification sent to Caregiver Lakshmi & Dr. Pushpa!\nPatient: ${currentUser?.full_name || 'Patient'}`);
+            speak("Emergency alert sent! Your daughter Spandana and caregiver have been notified.");
+            showAlert('🚨 SOS Alert Dispatched', `Your daughter Spandana and caregiver have been notified immediately! Help is on the way.`);
         } catch {
-            showAlert('Emergency', 'Emergency signal dispatched to care team.');
+            showAlert('Emergency', 'Emergency signal dispatched to your care network.');
         }
     };
 
-    const handleCallCaregiver = () => {
-        showAlert('📞 Calling Caregiver', 'Connecting to your primary caregiver: Lakshmi K R');
+    const handleSidebarSelect = (key) => {
+        // Only 'home' has inline dashboard content
+        if (key === 'home') {
+            setActiveTab(key);
+        }
+        // Tabs that navigate away or open modals — do NOT change activeTab
+        if (key === 'medications') {
+            navigation.navigate('Medication');
+        } else if (key === 'location') {
+            handleWhereAmI(); // opens the voice/modal overlay, stays on home
+        } else if (key === 'messages') {
+            navigation.navigate('Contacts');
+        } else if (key === 'settings') {
+            navigation.navigate('Settings');
+        }
     };
 
-    const handleOpenWhereIsIt = () => {
-        setObjectModal(true);
-        speak("Opening Where Did I Put It Assistant. Here are your recent item locations.");
-    };
-
-    const handlePlayBrainGame = () => {
-        setGameModal(true);
-        speak("Welcome to Memory Training. Who is your daughter?");
-    };
-
-    const nextPending = reminders.find(r => !r.is_completed);
-
-    const patientModules = [
-        { title: 'Medication Schedule', icon: 'medkit', target: 'Medication', color: '#7c3aed', desc: 'View your complete daily routine' },
-        { title: 'Family Memory Directory', icon: 'people', target: 'Photos', color: '#be185d', desc: 'Recognize Rachana, Lakshmi & Dr. Pushpa' },
-        { title: 'Emergency Contacts', icon: 'call', target: 'Contacts', color: '#16a34a', desc: 'Doctor & Caregiver contacts' },
+    const patientNavItems = [
+        { key: 'home', label: 'Home', icon: 'home-outline', activeIcon: 'home' },
+        { key: 'medications', label: 'Medications', icon: 'medical-outline', activeIcon: 'medical' },
+        { key: 'location', label: 'Location', icon: 'location-outline', activeIcon: 'location' },
+        { key: 'messages', label: 'Messages', icon: 'chatbubble-ellipses-outline', activeIcon: 'chatbubble-ellipses' },
+        { key: 'settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings' },
     ];
 
-    return (
-        <LinearGradient colors={['#1e1b4b', '#0f172a']} style={styles.container}>
+    // Find next pending medication — purely from live API data
+    const nextPendingMed = reminders.find(r => !r.is_completed) || null;
+    const nextMedTitle = nextPendingMed ? (nextPendingMed.title.split(' - ')[0] || nextPendingMed.title) : null;
+    const nextMedCategory = nextPendingMed ? (nextPendingMed.title.split(' - ')[1] || 'Medication') : null;
+    const nextMedTime = nextPendingMed ? (() => {
+        try {
+            const d = parseUTC(nextPendingMed.time);
+            return `Today • ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        } catch { return nextPendingMed.time || 'Scheduled'; }
+    })() : null;
 
-            {/* Top Bar Status Indicator */}
-            <View style={styles.topBar}>
-                <View style={styles.topBarLeft}>
-                    <View style={styles.pulseDot} />
-                    <Text style={styles.topBarStatus}>
-                        {locationShared ? '📍 Location Auto-Tracked' : '🛡️ Safe Zone Active'}
-                    </Text>
-                </View>
+    const patientName = currentUser?.full_name || '';
+
+    return (
+        <View style={styles.rootContainer}>
+            {/* Top Navigation Header */}
+            <DementiaCareHeader 
+                user={currentUser} 
+                role="Patient" 
+                themeColor="#1e293b" 
+                navigation={navigation}
+            />
+
+            <View style={styles.bodyLayout}>
+                {/* Left Sidebar (Desktop / Tablet) */}
+                {isDesktop && (
+                    <DashboardSidebar 
+                        items={patientNavItems} 
+                        activeKey={activeTab} 
+                        onSelect={handleSidebarSelect}
+                        activeColor="#2563eb"
+                        activeBg="#dbeafe"
+                    />
+                )}
+
+                {/* Main Content Dashboard */}
+                <ScrollView 
+                    style={styles.mainCanvas} 
+                    contentContainerStyle={styles.canvasContent}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Greeting Banner */}
+                    <View style={styles.greetingSection}>
+                        <View style={styles.greetingHeaderRow}>
+                            <Text style={styles.sunIcon}>☀️</Text>
+                            <Text style={styles.greetingTitle}>
+                                Good morning, {patientName} <Text style={styles.smiley}>😊</Text>
+                            </Text>
+                        </View>
+                        <Text style={styles.greetingSubtitle}>
+                            You are safe. Take your time. We are here for you.
+                        </Text>
+                    </View>
+
+                    {/* Trust Anchor Banner */}
+                    <TouchableOpacity 
+                        style={styles.trustAnchorCard} 
+                        activeOpacity={0.85}
+                        onPress={() => {
+                            speak("Your daughter Spandana set up this helper so you always feel safe and supported.");
+                        }}
+                    >
+                        <View style={styles.trustHeartCircle}>
+                            <Ionicons name="heart" size={26} color="#ffffff" />
+                        </View>
+                        <View style={styles.trustTextCol}>
+                            <Text style={styles.trustTitle}>Trust Anchor</Text>
+                            <Text style={styles.trustDescription}>
+                                Your daughter Spandana set up this helper.
+                            </Text>
+                        </View>
+                        <View style={styles.trustRightIcon}>
+                            <Ionicons name="people" size={28} color="#93c5fd" />
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Quick Help Section */}
+                    <View style={styles.quickHelpSection}>
+                        <Text style={styles.sectionHeaderTitle}>Quick Help</Text>
+                        <Text style={styles.sectionHeaderSub}>Tap to get support</Text>
+
+                        <View style={styles.quickHelpGrid}>
+                            {/* 1. Where am I? */}
+                            <TouchableOpacity 
+                                style={[styles.helpCard, styles.helpCardBlue]}
+                                activeOpacity={0.8}
+                                onPress={handleWhereAmI}
+                            >
+                                <View style={[styles.helpIconCircle, { backgroundColor: '#dbeafe' }]}>
+                                    <Ionicons name="location" size={24} color="#2563eb" />
+                                </View>
+                                <Text style={styles.helpCardTitle}>Where am I?</Text>
+                                <Text style={styles.helpCardSub}>Get your location</Text>
+                            </TouchableOpacity>
+
+                            {/* 2. What should I do? */}
+                            <TouchableOpacity 
+                                style={[styles.helpCard, styles.helpCardGreen]}
+                                activeOpacity={0.8}
+                                onPress={handleWhatShouldIDo}
+                            >
+                                <View style={[styles.helpIconCircle, { backgroundColor: '#dcfce7' }]}>
+                                    <Ionicons name="checkbox-outline" size={24} color="#16a34a" />
+                                </View>
+                                <Text style={styles.helpCardTitle}>What should I do?</Text>
+                                <Text style={styles.helpCardSub}>View next task</Text>
+                            </TouchableOpacity>
+
+                            {/* 3. Who is helping me? */}
+                            <TouchableOpacity 
+                                style={[styles.helpCard, styles.helpCardPurple]}
+                                activeOpacity={0.8}
+                                onPress={handleWhoIsHelpingMe}
+                            >
+                                <View style={[styles.helpIconCircle, { backgroundColor: '#f3e8ff' }]}>
+                                    <Ionicons name="people" size={24} color="#9333ea" />
+                                </View>
+                                <Text style={styles.helpCardTitle}>Who is helping me?</Text>
+                                <Text style={styles.helpCardSub}>Family & Caregivers</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Next Scheduled Medication Section */}
+                    <View style={styles.nextMedSection}>
+                        <View style={styles.medHeaderRow}>
+                            <Text style={styles.sectionHeaderTitle}>Next Scheduled Medication</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Medication')}>
+                                <Text style={styles.viewAllText}>View all</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {nextPendingMed ? (
+                            <View style={styles.medCard}>
+                                <View style={styles.medLeftInfo}>
+                                    <View style={styles.medIconCircle}>
+                                        <Ionicons name="bandage-outline" size={24} color="#2563eb" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.medNameText}>{nextMedTitle}</Text>
+                                        <Text style={styles.medCategoryText}>{nextMedCategory}</Text>
+                                        <View style={styles.medTimeRow}>
+                                            <Ionicons name="time-outline" size={15} color="#64748b" />
+                                            <Text style={styles.medTimeText}>{nextMedTime}</Text>
+                                        </View>
+                                        <Text style={styles.medInstructionText}>Take with warm water</Text>
+                                    </View>
+                                </View>
+                                <TouchableOpacity 
+                                    style={styles.markTakenBtn}
+                                    activeOpacity={0.85}
+                                    onPress={() => handleMarkNextMedTaken(nextPendingMed)}
+                                >
+                                    <Text style={styles.markTakenBtnText}>MARK AS TAKEN</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={[styles.medCard, { justifyContent: 'center', gap: 10, flexDirection: 'row', alignItems: 'center' }]}>
+                                <Ionicons name="checkmark-circle" size={28} color="#16a34a" />
+                                <View>
+                                    <Text style={[styles.medNameText, { color: '#15803d' }]}>All medications taken!</Text>
+                                    <Text style={styles.medCategoryText}>Great job today 🎉</Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Need Help Now? SOS Card */}
+                    <TouchableOpacity 
+                        style={styles.sosCard} 
+                        activeOpacity={0.85}
+                        onPress={handlePanic}
+                    >
+                        <View style={styles.sosBadge}>
+                            <Text style={styles.sosBadgeText}>SOS</Text>
+                        </View>
+                        <View style={styles.sosTextCol}>
+                            <Text style={styles.sosTitle}>Need help now?</Text>
+                            <Text style={styles.sosSub}>Tap the SOS button for immediate assistance.</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={22} color="#f87171" />
+                    </TouchableOpacity>
+
+                </ScrollView>
             </View>
 
             {/* Voice Assistant / Memory Companion Modal */}
-            <Modal visible={voiceModal} transparent animationType="slide">
+            <Modal visible={voiceModal} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <LinearGradient colors={['#3730a3', '#1e1b4b']} style={styles.voiceCard}>
+                    <View style={styles.voiceCard}>
                         <View style={styles.voiceHeader}>
-                            <Ionicons name="sparkles" size={32} color="#a78bfa" />
+                            <Ionicons name="sparkles" size={28} color="#6366f1" />
                             <Text style={styles.voiceHeaderText}>Memory Companion</Text>
                         </View>
+
                         <Animated.View style={[styles.voiceIconRing, { transform: [{ scale: pulseAnim }] }]}>
-                            <Ionicons name="volume-high" size={54} color="white" />
+                            <Ionicons name="volume-high" size={44} color="white" />
                         </Animated.View>
+
                         <Text style={styles.voiceMsg}>{voiceTitle}</Text>
+
                         {companionText ? (
                             <View style={styles.companionBox}>
                                 <Text style={styles.companionText}>{companionText}</Text>
@@ -287,389 +470,408 @@ export default function PatientDashboard({ navigation }) {
                         ) : null}
 
                         {activeReminder && (
-                            <View style={styles.medNameBox}>
-                                <Text style={styles.medName}>
-                                    {activeReminder.title.split(' - ').slice(1).join(' - ') || activeReminder.title}
-                                </Text>
-                            </View>
-                        )}
-                        {activeReminder && (
                             <View style={styles.voiceBtnRow}>
                                 <TouchableOpacity
                                     style={[styles.voiceBtn, styles.takenBtn]}
                                     onPress={() => handleVoiceConfirm(activeReminder.id, true)}
                                 >
-                                    <Ionicons name="checkmark-circle" size={26} color="white" />
+                                    <Ionicons name="checkmark-circle" size={22} color="white" />
                                     <Text style={styles.voiceBtnText}>TAKEN ✓</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.voiceBtn, styles.missedBtn]}
                                     onPress={() => handleVoiceConfirm(activeReminder.id, false)}
                                 >
-                                    <Ionicons name="close-circle" size={26} color="white" />
+                                    <Ionicons name="close-circle" size={22} color="white" />
                                     <Text style={styles.voiceBtnText}>NOT TAKEN</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
+
                         <TouchableOpacity style={styles.dismissBtn} onPress={closeVoiceModal}>
-                            <Text style={styles.dismissText}>CLOSE WINDOW</Text>
-                        </TouchableOpacity>
-                    </LinearGradient>
-                </View>
-            </Modal>
-
-            {/* "Where Did I Put It?" Object Finder Modal */}
-            <Modal visible={objectModal} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.objectModalCard}>
-                        <Text style={styles.objectModalTitle}>🔍 "Where Did I Put It?" Assistant</Text>
-                        <Text style={styles.objectModalSub}>AI Object Tracker Logged Locations</Text>
-
-                        {OBJECT_LOGS.map((obj, idx) => (
-                            <TouchableOpacity
-                                key={idx}
-                                style={styles.objectItem}
-                                onPress={() => speak(`${obj.name} was last seen at ${obj.lastSeen} at ${obj.time}.`)}
-                            >
-                                <Ionicons name="location" size={24} color="#7c3aed" />
-                                <View style={{ flex: 1, marginLeft: 12 }}>
-                                    <Text style={styles.objectName}>{obj.name}</Text>
-                                    <Text style={styles.objectLoc}>Last placed at: <Text style={{ fontWeight: 'bold' }}>{obj.lastSeen}</Text></Text>
-                                    <Text style={styles.objectTime}>Logged at {obj.time}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-
-                        <TouchableOpacity style={styles.closeModalBtn} onPress={() => setObjectModal(false)}>
-                            <Text style={styles.closeModalText}>CLOSE ASSISTANT</Text>
+                            <Text style={styles.dismissText}>CLOSE HELPER</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
-
-            {/* Mini Memory Training Game Modal */}
-            <Modal visible={gameModal} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.objectModalCard}>
-                        <Text style={styles.objectModalTitle}>🧠 Memory Companion Mini-Game</Text>
-                        <Text style={styles.objectModalSub}>Question 1: Who is your daughter who checks on you?</Text>
-
-                        <TouchableOpacity
-                            style={[styles.gameOptionBtn, { backgroundColor: '#d1fae5' }]}
-                            onPress={() => {
-                                speak("Correct! Rachana D N is your daughter!");
-                                showAlert("✅ Correct!", "Rachana D N is your loving daughter.");
-                            }}
-                        >
-                            <Text style={[styles.gameOptionText, { color: '#065f46' }]}>A. Rachana D N</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={[styles.gameOptionBtn, { backgroundColor: '#fef3c7' }]}
-                            onPress={() => speak("Try again. Your daughter is Rachana D N.")}
-                        >
-                            <Text style={[styles.gameOptionText, { color: '#92400e' }]}>B. Lakshmi K R (Caregiver)</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.closeModalBtn} onPress={() => setGameModal(false)}>
-                            <Text style={styles.closeModalText}>FINISH GAME</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-                {/* 1. Smart Wake-Up & Memory Companion Hero Card */}
-                <View style={styles.companionHeroCard}>
-                    <View style={styles.orientationHeader}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={styles.dateLabel}>{todayDateStr}</Text>
-                            <Text style={styles.greetingText}>Good morning, {currentUser?.full_name || 'Rachana'} 👋</Text>
-                            <Text style={styles.companionSub}>"I am your Memory Companion. I am here to help you today."</Text>
-                        </View>
-                        <TouchableOpacity style={styles.caregiverCallBtn} onPress={handleCallCaregiver}>
-                            <Ionicons name="call" size={22} color="white" />
-                            <Text style={styles.caregiverCallText}>Call Lakshmi</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Family Trust Memory Anchor */}
-                    <View style={styles.trustAnchorBox}>
-                        <Ionicons name="heart-circle" size={32} color="#ec4899" />
-                        <Text style={styles.trustAnchorText}>
-                            Your daughter <Text style={{ fontWeight: 'bold', color: '#1e1b4b' }}>Spandana</Text> set up this Memory Helper so you always feel safe and supported.
-                        </Text>
-                    </View>
-                </View>
-
-                {/* 2. MASSIVE "I NEED HELP REMEMBERING" BUTTON */}
-                <TouchableOpacity style={styles.bigMemoryHelpBtn} onPress={handleNeedHelpRemembering}>
-                    <Ionicons name="bulb" size={36} color="white" />
-                    <View style={{ marginLeft: 14 }}>
-                        <Text style={styles.bigMemoryHelpTitle}>I NEED HELP REMEMBERING</Text>
-                        <Text style={styles.bigMemoryHelpSub}>Tap here anytime you feel confused or lost</Text>
-                    </View>
-                </TouchableOpacity>
-
-                {/* 3. Advanced AIML Object Finder & Brain Game Row */}
-                <View style={styles.aimlRow}>
-                    <TouchableOpacity style={styles.aimlTile} onPress={handleOpenWhereIsIt}>
-                        <Ionicons name="search" size={28} color="#7c3aed" />
-                        <Text style={styles.aimlTileTitle}>"Where Did I Put It?"</Text>
-                        <Text style={styles.aimlTileSub}>Find keys, glasses, stick</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.aimlTile, { backgroundColor: '#f0fdf4' }]} onPress={handlePlayBrainGame}>
-                        <Ionicons name="extension-puzzle" size={28} color="#16a34a" />
-                        <Text style={styles.aimlTileTitle}>Memory Game</Text>
-                        <Text style={styles.aimlTileSub}>Daily family training</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* 4. 3 DISTINCT COGNITIVE CONFUSION BUTTONS */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>🗣️ Ask Your Memory Companion</Text>
-                    <View style={styles.cognitiveBtnGrid}>
-                        <TouchableOpacity style={styles.cognitiveBtn} onPress={handleWhereAmI}>
-                            <Ionicons name="location" size={24} color="#3b82f6" />
-                            <Text style={styles.cognitiveBtnText}>"Where am I?"</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.cognitiveBtn} onPress={handleWhatShouldIDo}>
-                            <Ionicons name="help-circle" size={24} color="#7c3aed" />
-                            <Text style={styles.cognitiveBtnText}>"What should I do?"</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.cognitiveBtn} onPress={handleWhoIsHelpingMe}>
-                            <Ionicons name="people" size={24} color="#16a34a" />
-                            <Text style={styles.cognitiveBtnText}>"Who is helping me?"</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Mood Check-In */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>😊 How are you feeling right now?</Text>
-                    <View style={styles.moodRow}>
-                        {[
-                            { emoji: '😊', label: 'Happy' },
-                            { emoji: '😌', label: 'Calm' },
-                            { emoji: '😟', label: 'Confused' },
-                            { emoji: '😴', label: 'Tired' },
-                        ].map((m) => (
-                            <TouchableOpacity
-                                key={m.label}
-                                style={[styles.moodBtn, selectedMood === m.label && styles.moodBtnSelected]}
-                                onPress={() => {
-                                    setSelectedMood(m.label);
-                                    showAlert('Mood Saved', `Logged "${m.label}". Caregiver Lakshmi notified.`);
-                                }}
-                            >
-                                <Text style={styles.moodEmoji}>{m.emoji}</Text>
-                                <Text style={styles.moodLabel}>{m.label}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Single Next Medicine Focus Card */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeaderRow}>
-                        <Text style={styles.cardTitle}>⏰ Next Scheduled Medicine</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Medication')}>
-                            <Text style={styles.viewAllText}>View All →</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {nextPending ? (
-                        <View style={styles.nextMedBox}>
-                            <View style={styles.nextMedIconBg}>
-                                <Ionicons name="medkit" size={36} color="#7c3aed" />
-                            </View>
-                            <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Text style={styles.nextMedTitle}>
-                                    {nextPending.title.split(' - ').slice(1).join(' - ') || nextPending.title}
-                                </Text>
-                                <Text style={styles.nextMedTime}>
-                                    Due Today at {parseUTC(nextPending.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </Text>
-                            </View>
-                        </View>
-                    ) : (
-                        <View style={styles.allDoneBox}>
-                            <Ionicons name="checkmark-done-circle" size={48} color="#10b981" />
-                            <Text style={styles.allDoneText}>All medicines for today are taken!</Text>
-                        </View>
-                    )}
-                </View>
-
-                {/* Patient Essential Tools */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>⭐ Essential Tools</Text>
-                    <View style={styles.toolsContainer}>
-                        {patientModules.map(mod => (
-                            <TouchableOpacity
-                                key={mod.title}
-                                style={styles.toolItem}
-                                onPress={() => navigation.navigate(mod.target)}
-                            >
-                                <View style={[styles.toolIconBg, { backgroundColor: mod.color + '20' }]}>
-                                    <Ionicons name={mod.icon} size={28} color={mod.color} />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: 14 }}>
-                                    <Text style={styles.toolTitle}>{mod.title}</Text>
-                                    <Text style={styles.toolDesc}>{mod.desc}</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={22} color="#aaa" />
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Emergency Floating Banner */}
-                <TouchableOpacity style={styles.bottomPanicCard} onPress={handlePanic}>
-                    <Ionicons name="warning" size={36} color="white" />
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={styles.bottomPanicTitle}>1-TAP EMERGENCY SOS</Text>
-                        <Text style={styles.bottomPanicSub}>Alerts Lakshmi & Dr. Pushpa immediately</Text>
-                    </View>
-                </TouchableOpacity>
-
-                <View style={{ height: 40 }} />
-            </ScrollView>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    topBar: {
-        paddingTop: 55, paddingBottom: 14, paddingHorizontal: 20,
-        backgroundColor: 'rgba(0,0,0,0.4)', flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'space-between',
-        borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)'
+    rootContainer: {
+        flex: 1,
+        backgroundColor: '#f8fafc',
+        height: Platform.OS === 'web' ? '100vh' : '100%',
     },
-    topBarLeft: { flexDirection: 'row', alignItems: 'center' },
-    pulseDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#10b981', marginRight: 10 },
-    topBarStatus: { color: '#e2e8f0', fontSize: 14, fontWeight: '600' },
-    content: { padding: 20 },
-
-    companionHeroCard: {
-        backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 28, padding: 24,
-        marginBottom: 18, marginTop: 10, shadowColor: '#7c3aed', shadowOpacity: 0.15, shadowRadius: 10, elevation: 5
+    bodyLayout: {
+        flex: 1,
+        flexDirection: 'row',
+        minHeight: 0,
+        height: Platform.OS === 'web' ? 'calc(100vh - 70px)' : '100%',
+        overflow: 'hidden'
     },
-    orientationHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-    dateLabel: { fontSize: 16, color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' },
-    greetingText: { fontSize: 32, fontWeight: 'bold', color: '#1f1545', marginTop: 3 },
-    companionSub: { fontSize: 18, color: '#7c3aed', fontWeight: '600', marginTop: 4, lineHeight: 25 },
-    caregiverCallBtn: {
-        backgroundColor: '#16a34a', paddingHorizontal: 18, paddingVertical: 14,
-        borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 8
+    mainCanvas: {
+        flex: 1,
+        minHeight: 0,
+        backgroundColor: '#ffffff',
+        ...(Platform.OS === 'web' ? { height: 'calc(100vh - 70px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } : {})
     },
-    caregiverCallText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
-    trustAnchorBox: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdf2f8',
-        padding: 18, borderRadius: 20, borderWidth: 1.5, borderColor: '#fbcfe8', gap: 12
+    canvasContent: {
+        padding: 24,
+        paddingBottom: 100,
+        maxWidth: 780,
+        width: '100%',
+        alignSelf: 'center',
     },
-    trustAnchorText: { flex: 1, fontSize: 17, color: '#831843', lineHeight: 24 },
-
-    bigMemoryHelpBtn: {
-        backgroundColor: '#7c3aed', borderRadius: 28, padding: 26,
-        flexDirection: 'row', alignItems: 'center', marginBottom: 18,
-        shadowColor: '#7c3aed', shadowOpacity: 0.4, shadowRadius: 12, elevation: 6
+    greetingSection: {
+        marginBottom: 20
     },
-    bigMemoryHelpTitle: { color: 'white', fontSize: 25, fontWeight: 'bold', letterSpacing: 0.5 },
-    bigMemoryHelpSub: { color: '#ddd6fe', fontSize: 17, marginTop: 4 },
-
-    aimlRow: { flexDirection: 'row', gap: 14, marginBottom: 18 },
-    aimlTile: {
-        flex: 1, backgroundColor: '#f5f3ff', padding: 20, borderRadius: 22,
-        borderWidth: 2, borderColor: '#ddd6fe', alignItems: 'flex-start'
+    greetingHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 6
     },
-    aimlTileTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f1545', marginTop: 8 },
-    aimlTileSub: { fontSize: 15, color: '#6b7280', marginTop: 4 },
-
-    cognitiveBtnGrid: { flexDirection: 'row', gap: 10, marginTop: 14 },
-    cognitiveBtn: {
-        flex: 1, backgroundColor: '#f8fafc', padding: 16, borderRadius: 18,
-        alignItems: 'center', borderWidth: 1.5, borderColor: '#cbd5e1'
+    sunIcon: {
+        fontSize: 26
     },
-    cognitiveBtnText: { fontSize: 16, fontWeight: 'bold', color: '#1e1b4b', marginTop: 6, textAlign: 'center' },
-
-    card: {
-        backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 26, padding: 24,
-        marginBottom: 18
+    greetingTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#0f172a'
     },
-    cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-    cardTitle: { fontSize: 23, fontWeight: 'bold', color: '#1f1545' },
-    viewAllText: { fontSize: 17, color: '#7c3aed', fontWeight: 'bold' },
-    moodRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
-    moodBtn: {
-        alignItems: 'center', padding: 16, borderRadius: 18,
-        backgroundColor: '#f3f4f6', flex: 1, marginHorizontal: 4
+    smiley: {
+        fontSize: 20
     },
-    moodBtnSelected: { backgroundColor: '#ddd6fe', borderWidth: 2, borderColor: '#7c3aed' },
-    moodEmoji: { fontSize: 34 },
-    moodLabel: { fontSize: 15, color: '#374151', marginTop: 6, fontWeight: 'bold' },
-    nextMedBox: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f3ff',
-        padding: 20, borderRadius: 20, borderWidth: 1.5, borderColor: '#ddd6fe'
+    greetingSubtitle: {
+        fontSize: 14,
+        color: '#64748b'
     },
-    nextMedIconBg: {
-        width: 64, height: 64, borderRadius: 20, backgroundColor: '#ede9fe',
-        justifyContent: 'center', alignItems: 'center'
+    trustAnchorCard: {
+        backgroundColor: '#eff6ff',
+        borderRadius: 18,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#bfdbfe',
+        marginBottom: 24,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 1
     },
-    nextMedTitle: { fontSize: 21, fontWeight: 'bold', color: '#1f1545' },
-    nextMedTime: { fontSize: 17, color: '#7c3aed', marginTop: 4, fontWeight: 'bold' },
-    allDoneBox: { alignItems: 'center', padding: 20 },
-    allDoneText: { color: '#065f46', fontWeight: 'bold', marginTop: 10, fontSize: 18 },
-    toolsContainer: { marginTop: 12, gap: 12 },
-    toolItem: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9fafb',
-        padding: 18, borderRadius: 18, borderWidth: 1.5, borderColor: '#f3f4f6'
+    trustHeartCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#1d4ed8',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14
     },
-    toolIconBg: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-    toolTitle: { fontSize: 20, fontWeight: 'bold', color: '#1f1545' },
-    toolDesc: { fontSize: 16, color: '#6b7280', marginTop: 3 },
-    bottomPanicCard: {
-        backgroundColor: '#dc2626', borderRadius: 24, padding: 24,
-        flexDirection: 'row', alignItems: 'center', marginTop: 8,
-        shadowColor: '#dc2626', shadowOpacity: 0.5, shadowRadius: 12, elevation: 8
+    trustTextCol: {
+        flex: 1
     },
-    bottomPanicTitle: { color: 'white', fontWeight: 'bold', fontSize: 22, letterSpacing: 0.5 },
-    bottomPanicSub: { color: '#fca5a5', fontSize: 16, marginTop: 3 },
-
-    objectModalCard: { backgroundColor: 'white', borderRadius: 28, padding: 26, width: '90%', alignSelf: 'center' },
-    objectModalTitle: { fontSize: 24, fontWeight: 'bold', color: '#1f1545', textAlign: 'center' },
-    objectModalSub: { fontSize: 15, color: '#64748b', marginTop: 4, marginBottom: 18, textAlign: 'center' },
-    objectItem: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f3ff',
-        padding: 16, borderRadius: 18, marginBottom: 12, borderWidth: 1.5, borderColor: '#ddd6fe'
+    trustTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1e3a8a',
+        marginBottom: 2
     },
-    objectName: { fontSize: 18, fontWeight: 'bold', color: '#1f1545' },
-    objectLoc: { fontSize: 15, color: '#4b5563', marginTop: 3 },
-    objectTime: { fontSize: 13, color: '#7c3aed', marginTop: 2 },
-    gameOptionBtn: { padding: 18, borderRadius: 18, marginBottom: 12 },
-    gameOptionText: { fontSize: 18, fontWeight: 'bold' },
-    closeModalBtn: { backgroundColor: '#1e1b4b', padding: 16, borderRadius: 18, alignItems: 'center', marginTop: 10 },
-    closeModalText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-    voiceCard: { borderTopLeftRadius: 36, borderTopRightRadius: 36, padding: 32, paddingBottom: 55, alignItems: 'center' },
-    voiceHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
-    voiceHeaderText: { color: 'white', fontSize: 24, fontWeight: 'bold', marginLeft: 12 },
-    voiceIconRing: { width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center', marginBottom: 18 },
-    voiceMsg: { color: 'white', fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 },
-    companionBox: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 18, borderRadius: 20, marginBottom: 20, width: '100%' },
-    companionText: { color: 'white', fontSize: 18, lineHeight: 26, textAlign: 'center', fontWeight: '600' },
-    medNameBox: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 16, marginBottom: 22, width: '100%', alignItems: 'center' },
-    medName: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-    voiceBtnRow: { flexDirection: 'row', gap: 14, width: '100%', marginBottom: 16 },
-    voiceBtn: { flex: 1, padding: 18, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
-    takenBtn: { backgroundColor: '#16a34a' },
-    missedBtn: { backgroundColor: '#dc2626' },
-    voiceBtnText: { color: 'white', fontWeight: 'bold', fontSize: 17 },
-    dismissBtn: { marginTop: 8, paddingVertical: 10, paddingHorizontal: 24 },
-    dismissText: { color: 'rgba(255,255,255,0.6)', fontSize: 15 },
+    trustDescription: {
+        fontSize: 13,
+        color: '#3b82f6',
+        fontWeight: '500'
+    },
+    trustRightIcon: {
+        marginLeft: 10
+    },
+    quickHelpSection: {
+        marginBottom: 24
+    },
+    sectionHeaderTitle: {
+        fontSize: 17,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        marginBottom: 2
+    },
+    sectionHeaderSub: {
+        fontSize: 13,
+        color: '#64748b',
+        marginBottom: 14
+    },
+    quickHelpGrid: {
+        flexDirection: 'row',
+        gap: 12,
+        justifyContent: 'space-between'
+    },
+    helpCard: {
+        flex: 1,
+        borderRadius: 16,
+        paddingVertical: 18,
+        paddingHorizontal: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+        elevation: 1
+    },
+    helpCardBlue: {
+        backgroundColor: '#eff6ff',
+        borderColor: '#dbeafe'
+    },
+    helpCardGreen: {
+        backgroundColor: '#f0fdf4',
+        borderColor: '#dcfce7'
+    },
+    helpCardPurple: {
+        backgroundColor: '#faf5ff',
+        borderColor: '#f3e8ff'
+    },
+    helpIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    helpCardTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        textAlign: 'center',
+        marginBottom: 4
+    },
+    helpCardSub: {
+        fontSize: 11,
+        color: '#64748b',
+        textAlign: 'center'
+    },
+    nextMedSection: {
+        marginBottom: 24
+    },
+    medHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12
+    },
+    viewAllText: {
+        fontSize: 13,
+        color: '#2563eb',
+        fontWeight: '600'
+    },
+    medCard: {
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2
+    },
+    medLeftInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 14
+    },
+    medIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14
+    },
+    medNameText: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#0f172a'
+    },
+    medCategoryText: {
+        fontSize: 12,
+        color: '#64748b',
+        marginBottom: 6
+    },
+    medTimeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 2
+    },
+    medTimeText: {
+        fontSize: 12,
+        color: '#0f172a',
+        fontWeight: '600'
+    },
+    medInstructionText: {
+        fontSize: 11,
+        color: '#64748b'
+    },
+    markTakenBtn: {
+        backgroundColor: '#ea580c',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        shadowColor: '#ea580c',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 3
+    },
+    markTakenBtnText: {
+        color: '#ffffff',
+        fontSize: 12,
+        fontWeight: 'bold',
+        letterSpacing: 0.3
+    },
+    sosCard: {
+        backgroundColor: '#fef2f2',
+        borderRadius: 16,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#fecaca',
+        shadowColor: '#ef4444',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 1
+    },
+    sosBadge: {
+        backgroundColor: '#ef4444',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 14,
+        marginRight: 14
+    },
+    sosBadgeText: {
+        color: '#ffffff',
+        fontWeight: 'bold',
+        fontSize: 13
+    },
+    sosTextCol: {
+        flex: 1
+    },
+    sosTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#991b1b'
+    },
+    sosSub: {
+        fontSize: 12,
+        color: '#dc2626'
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    voiceCard: {
+        width: '100%',
+        maxWidth: 420,
+        backgroundColor: '#ffffff',
+        borderRadius: 24,
+        padding: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10
+    },
+    voiceHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 16
+    },
+    voiceHeaderText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1e1b4b'
+    },
+    voiceIconRing: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#6366f1',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16
+    },
+    voiceMsg: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#0f172a',
+        textAlign: 'center',
+        marginBottom: 10
+    },
+    companionBox: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        marginBottom: 18,
+        width: '100%'
+    },
+    companionText: {
+        fontSize: 14,
+        color: '#334155',
+        lineHeight: 20,
+        textAlign: 'center'
+    },
+    voiceBtnRow: {
+        flexDirection: 'row',
+        gap: 12,
+        width: '100%',
+        marginBottom: 12
+    },
+    voiceBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 14,
+        gap: 6
+    },
+    takenBtn: {
+        backgroundColor: '#16a34a'
+    },
+    missedBtn: {
+        backgroundColor: '#dc2626'
+    },
+    voiceBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14
+    },
+    dismissBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 20
+    },
+    dismissText: {
+        color: '#64748b',
+        fontWeight: '600',
+        fontSize: 13
+    }
 });

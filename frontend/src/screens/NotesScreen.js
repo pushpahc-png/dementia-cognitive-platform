@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fetchNotes, addNote } from '../api/client';
 
 export default function NotesScreen({ navigation }) {
@@ -25,73 +24,141 @@ export default function NotesScreen({ navigation }) {
     const handleSave = async () => {
         if (!title.trim() || !content.trim()) return;
         try {
-            await addNote(title, content);
+            await addNote(title.trim(), content.trim());
             setTitle('');
             setContent('');
             loadNotes();
+            if (Platform.OS === 'web') window.alert('Note saved successfully!');
+            else Alert.alert("Success", "Note saved.");
         } catch (error) {
             Alert.alert("Error", "Could not save note.");
         }
     };
 
     return (
-        <LinearGradient colors={['#3b185f', '#1a0b2e']} style={styles.container}>
+        <View style={styles.container}>
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#3b185f" />
-                    <Text style={styles.backText}>Back</Text>
+                    <Ionicons name="arrow-back" size={24} color="#0f172a" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>NotesScreen</Text>
+                <Text style={styles.headerTitle}>Care Journal & Notes</Text>
+                <View style={{ width: 24 }} />
             </View>
+
             <View style={styles.content}>
                 <View style={styles.inputContainer}>
+                    <Text style={styles.inputHeading}>New Behavioral / Memory Note</Text>
                     <TextInput 
                         style={styles.inputTitle} 
-                        placeholder="Title..." 
+                        placeholder="Note Title (e.g. Afternoon orientation behavior)" 
+                        placeholderTextColor="#94a3b8"
                         value={title} 
                         onChangeText={setTitle} 
                     />
                     <TextInput 
                         style={styles.inputContent} 
-                        placeholder="Description..." 
+                        placeholder="Write observations, caregiver reminders, or daily health updates..." 
+                        placeholderTextColor="#94a3b8"
                         multiline
                         value={content} 
                         onChangeText={setContent} 
                     />
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                        <Text style={styles.saveBtnText}>Save Entry</Text>
+                    </TouchableOpacity>
                 </View>
                 
                 <FlatList
                     data={notes}
                     keyExtractor={(item) => item.id.toString()}
+                    showsVerticalScrollIndicator={false}
                     style={{ flex: 1, marginTop: 10 }}
                     renderItem={({ item }) => (
                         <View style={styles.noteCard}>
-                            <Text style={styles.noteTitle}>{item.title}</Text>
+                            <View style={styles.noteHeader}>
+                                <Ionicons name="document-text-outline" size={18} color="#2563eb" />
+                                <Text style={styles.noteTitle}>{item.title}</Text>
+                            </View>
                             <Text style={styles.noteDesc}>{item.content}</Text>
                         </View>
                     )}
+                    ListEmptyComponent={
+                        <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 30 }}>
+                            No notes logged yet. Add your first care journal entry above.
+                        </Text>
+                    }
                 />
-                
-                <TouchableOpacity style={styles.fab} onPress={handleSave}>
-                    <Ionicons name="add" size={30} color="white" />
-                </TouchableOpacity>
             </View>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, backgroundColor: 'white', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, flexDirection: 'row', alignItems: 'center' },
-    backButton: { flexDirection: 'row', alignItems: 'center' },
-    backText: { color: '#3b185f', fontSize: 16, marginLeft: 5, fontWeight: 'bold' },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginLeft: 40 },
-    content: { flex: 1, padding: 20 },
-    inputContainer: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 15 },
-    inputTitle: { fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10, marginBottom: 10 },
-    inputContent: { minHeight: 60, fontSize: 16 },
-    noteCard: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 10 },
-    noteTitle: { fontSize: 16, fontWeight: 'bold', color: '#111' },
-    noteDesc: { fontSize: 14, color: '#666', marginTop: 5 },
-    fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#3b185f', justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 5 }
+    container: { flex: 1, backgroundColor: '#f8fafc' },
+    header: {
+        height: 64,
+        paddingHorizontal: 16,
+        backgroundColor: 'white',
+        borderBottomWidth: 1,
+        borderColor: '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    backButton: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+    content: { flex: 1, padding: 20, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    inputContainer: {
+        backgroundColor: 'white',
+        padding: 18,
+        borderRadius: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
+    },
+    inputHeading: { fontSize: 14, fontWeight: 'bold', color: '#0f172a', marginBottom: 10 },
+    inputTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 10,
+        backgroundColor: '#f8fafc',
+        color: '#0f172a'
+    },
+    inputContent: {
+        minHeight: 70,
+        fontSize: 14,
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        backgroundColor: '#f8fafc',
+        color: '#0f172a',
+        textAlignVertical: 'top'
+    },
+    saveBtn: {
+        backgroundColor: '#2563eb',
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginTop: 12
+    },
+    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+    noteCard: {
+        backgroundColor: 'white',
+        padding: 16,
+        borderRadius: 14,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
+    },
+    noteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    noteTitle: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', flex: 1 },
+    noteDesc: { fontSize: 13, color: '#475569', lineHeight: 18 }
 });

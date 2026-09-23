@@ -4,7 +4,6 @@ import {
     ScrollView, Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fetchReminders, addReminder, updateReminder, deleteReminder, parseUTC, getUserRole } from '../api/client';
 
 const speak = (text) => {
@@ -29,12 +28,12 @@ const showMsg = (title, msg) => {
 
 export default function MedicationScreen({ navigation }) {
     const [reminders, setReminders] = useState([]);
-    const [userRole, setUserRole] = useState(null);
-    const [title, setTitle] = useState('Medication');
-    const [notes, setNotes] = useState('');
-    const [timeStr, setTimeStr] = useState('10:00 AM');
+    const [userRole, setUserRole]   = useState(null);
+    const [title, setTitle]         = useState('Medication');
+    const [notes, setNotes]         = useState('');
+    const [timeStr, setTimeStr]     = useState('10:00 AM');
     const [editingId, setEditingId] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading]     = useState(true);
 
     useEffect(() => {
         initialize();
@@ -140,9 +139,9 @@ export default function MedicationScreen({ navigation }) {
 
     if (loading) {
         return (
-            <LinearGradient colors={['#3b185f', '#1a0b2e']} style={styles.container}>
-                <View style={styles.centered}><Text style={styles.loadingText}>Loading medication schedules…</Text></View>
-            </LinearGradient>
+            <View style={[styles.container, styles.centered]}>
+                <Text style={styles.loadingText}>Loading medication schedules…</Text>
+            </View>
         );
     }
 
@@ -151,7 +150,7 @@ export default function MedicationScreen({ navigation }) {
         setReminders(prev => prev.map(r => r.id === item.id ? { ...r, is_completed: newStatus } : r));
 
         if (newStatus) {
-            const spokenMsg = `Medication ${medName} marked as TAKEN for Rachana D N. Daughter Spandana and Caregiver Lakshmi have been notified. Great job!`;
+            const spokenMsg = `Medication ${medName} marked as TAKEN. Care network updated.`;
             speak(spokenMsg);
             showMsg('✅ Medication Marked Taken', spokenMsg);
         } else {
@@ -161,15 +160,15 @@ export default function MedicationScreen({ navigation }) {
     };
 
     return (
-        <LinearGradient colors={['#3b185f', '#1a0b2e']} style={styles.container}>
+        <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color="#3b185f" />
+                    <Ionicons name="arrow-back" size={24} color="#0f172a" />
                 </TouchableOpacity>
                 <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={styles.headerTitle}>Medication Schedules</Text>
-                    <Text style={styles.headerSub}>{isPatient ? 'View your daily schedule' : 'Manage patient schedules'}</Text>
+                    <Text style={styles.headerSub}>{isPatient ? 'Daily Care Schedule' : 'Patient Medication Manager'}</Text>
                 </View>
                 <View style={{ width: 36 }} />
             </View>
@@ -179,22 +178,20 @@ export default function MedicationScreen({ navigation }) {
                 {/* Patient Info Banner */}
                 {isPatient && (
                     <View style={styles.infoBanner}>
-                        <Ionicons name="information-circle" size={26} color="#60a5fa" />
+                        <Ionicons name="information-circle" size={24} color="#2563eb" />
                         <Text style={styles.infoBannerText}>
-                            Your caregiver or doctor manages your medication schedule. You can view your routine below.
+                            Your daily medication is scheduled below. Tap any medicine when taken.
                         </Text>
                     </View>
                 )}
 
                 {/* Schedules List */}
-                <Text style={styles.sectionTitle}>
-                    <Ionicons name="medkit" size={20} color="#a78bfa" /> {'  '}Active Schedules
-                </Text>
+                <Text style={styles.sectionTitle}>Active Medications & Schedule</Text>
 
                 {reminders.length === 0 ? (
                     <View style={styles.emptyCard}>
-                        <Ionicons name="medkit-outline" size={48} color="#a78bfa" />
-                        <Text style={styles.emptyText}>No medication schedules yet.</Text>
+                        <Ionicons name="medical-outline" size={44} color="#94a3b8" />
+                        <Text style={styles.emptyText}>No medication schedules found.</Text>
                         {!isPatient && <Text style={styles.emptySubText}>Add the first schedule below.</Text>}
                     </View>
                 ) : (
@@ -202,7 +199,7 @@ export default function MedicationScreen({ navigation }) {
                         const dueTime = parseUTC(item.time);
                         const timeLabel = dueTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                         const parts = item.title.split(' - ');
-                        const category = parts[0] || '';
+                        const category = parts[0] || 'Medication';
                         const medName = parts.slice(1).join(' - ') || item.title;
                         return (
                             <View key={item.id} style={styles.reminderCard}>
@@ -213,23 +210,23 @@ export default function MedicationScreen({ navigation }) {
                                     <Text style={styles.reminderTitle}>{medName}</Text>
                                     <Text style={styles.reminderCategory}>{category}</Text>
                                     <View style={styles.timeRow}>
-                                        <Ionicons name="time-outline" size={16} color="#666" />
+                                        <Ionicons name="time-outline" size={15} color="#64748b" />
                                         <Text style={styles.reminderTime}> {timeLabel}</Text>
                                     </View>
                                     <TouchableOpacity
                                         style={[
                                             styles.statusBadge,
-                                            { backgroundColor: item.is_completed ? '#16a34a' : '#d97706' }
+                                            { backgroundColor: item.is_completed ? '#16a34a' : '#ea580c' }
                                         ]}
                                         onPress={() => handleToggleTaken(item, medName)}
                                     >
                                         <Ionicons
                                             name={item.is_completed ? "checkmark-circle" : "time-outline"}
-                                            size={20}
+                                            size={18}
                                             color="white"
                                         />
                                         <Text style={styles.statusText}>
-                                            {item.is_completed ? ' TAKEN (TAP TO UNDO)' : ' MARK AS TAKEN'}
+                                            {item.is_completed ? ' TAKEN ✓' : ' MARK AS TAKEN'}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -237,10 +234,10 @@ export default function MedicationScreen({ navigation }) {
                                 {!isPatient && (
                                     <View style={styles.actionCol}>
                                         <TouchableOpacity style={styles.editBtn} onPress={() => startEdit(item)}>
-                                            <Ionicons name="pencil" size={18} color="white" />
+                                            <Ionicons name="pencil" size={16} color="white" />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.delBtn} onPress={() => handleDelete(item.id)}>
-                                            <Ionicons name="trash" size={18} color="white" />
+                                            <Ionicons name="trash" size={16} color="white" />
                                         </TouchableOpacity>
                                     </View>
                                 )}
@@ -252,7 +249,7 @@ export default function MedicationScreen({ navigation }) {
                 {/* Add/Edit Form — CAREGIVER/DOCTOR ONLY */}
                 {!isPatient && (
                     <View style={styles.formCard}>
-                        <Text style={styles.formTitle}>{editingId ? '✏️  Edit Schedule' : '➕  Add New Schedule'}</Text>
+                        <Text style={styles.formTitle}>{editingId ? '✏️ Edit Schedule' : '➕ Add New Schedule'}</Text>
 
                         <Text style={styles.label}>Category</Text>
                         <View style={styles.pillContainer}>
@@ -267,33 +264,33 @@ export default function MedicationScreen({ navigation }) {
                             ))}
                         </View>
 
-                        <Text style={[styles.label, { marginTop: 20 }]}>Medicine / Description</Text>
+                        <Text style={[styles.label, { marginTop: 16 }]}>Medicine / Description</Text>
                         <TextInput
                             style={styles.input}
                             value={notes}
                             onChangeText={setNotes}
-                            placeholder="e.g. Aspirin 100mg — take with water"
-                            placeholderTextColor="#aaa"
+                            placeholder="e.g. Donepezil 10mg — Take with warm water"
+                            placeholderTextColor="#94a3b8"
                         />
 
-                        <Text style={[styles.label, { marginTop: 20 }]}>Time (HH:MM AM/PM)</Text>
+                        <Text style={[styles.label, { marginTop: 16 }]}>Time (HH:MM AM/PM)</Text>
                         <TextInput
                             style={styles.timeInput}
                             value={timeStr}
                             onChangeText={setTimeStr}
-                            placeholder="08:00 AM"
-                            placeholderTextColor="#aaa"
+                            placeholder="09:00 AM"
+                            placeholderTextColor="#94a3b8"
                         />
 
                         <View style={styles.buttonRow}>
                             {editingId && (
                                 <TouchableOpacity style={styles.cancelBtn} onPress={clearForm}>
-                                    <Text style={styles.btnText}>CANCEL</Text>
+                                    <Text style={styles.btnText}>Cancel</Text>
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                                <Ionicons name={editingId ? 'checkmark-circle' : 'add-circle'} size={22} color="white" />
-                                <Text style={[styles.btnText, { marginLeft: 8 }]}>{editingId ? 'UPDATE' : 'SAVE SCHEDULE'}</Text>
+                                <Ionicons name={editingId ? 'checkmark-circle' : 'add-circle'} size={20} color="white" />
+                                <Text style={[styles.btnText, { marginLeft: 6 }]}>{editingId ? 'Update' : 'Save Schedule'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -301,23 +298,23 @@ export default function MedicationScreen({ navigation }) {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </LinearGradient>
+        </View>
     );
 }
 
 const getCategoryColor = (cat) => {
     switch (cat) {
-        case 'Medication': return '#7c3aed';
-        case 'Lunch': return '#d97706';
-        case 'Activity': return '#0891b2';
-        case 'Appointment': return '#be185d';
-        default: return '#6b7280';
+        case 'Medication': return '#2563eb';
+        case 'Lunch': return '#ea580c';
+        case 'Activity': return '#059669';
+        case 'Appointment': return '#7c3aed';
+        default: return '#64748b';
     }
 };
 
 const getCategoryIcon = (cat) => {
     switch (cat) {
-        case 'Medication': return 'medkit';
+        case 'Medication': return 'bandage';
         case 'Lunch': return 'restaurant';
         case 'Activity': return 'walk';
         case 'Appointment': return 'calendar';
@@ -326,89 +323,150 @@ const getCategoryIcon = (cat) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    loadingText: { color: '#ccc', fontSize: 18 },
+    container: { flex: 1, backgroundColor: '#f8fafc' },
+    centered: { justifyContent: 'center', alignItems: 'center' },
+    loadingText: { color: '#64748b', fontSize: 16 },
     header: {
-        paddingTop: 55, paddingBottom: 20, paddingHorizontal: 20,
-        backgroundColor: 'white', borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5
+        height: 64,
+        paddingHorizontal: 16,
+        backgroundColor: '#ffffff',
+        borderBottomWidth: 1,
+        borderColor: '#e2e8f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
     },
-    backBtn: { padding: 8, backgroundColor: '#f0ebff', borderRadius: 12 },
-    headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#1f1545', textAlign: 'center' },
-    headerSub: { fontSize: 14, color: '#64748b', textAlign: 'center', marginTop: 2 },
-    content: { padding: 20 },
+    backBtn: { padding: 8 },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a', textAlign: 'center' },
+    headerSub: { fontSize: 12, color: '#64748b', textAlign: 'center' },
+    content: { padding: 20, maxWidth: 680, width: '100%', alignSelf: 'center' },
     infoBanner: {
-        backgroundColor: 'rgba(77,171,247,0.18)', borderRadius: 16, padding: 16,
-        flexDirection: 'row', alignItems: 'center', marginBottom: 22,
-        borderWidth: 1.5, borderColor: 'rgba(77,171,247,0.4)'
+        backgroundColor: '#eff6ff',
+        borderRadius: 14,
+        padding: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 18,
+        borderWidth: 1,
+        borderColor: '#bfdbfe'
     },
-    infoBannerText: { color: '#bfdbfe', fontSize: 15, flex: 1, marginLeft: 12, lineHeight: 22 },
-    sectionTitle: { color: '#e0d4fc', fontSize: 20, fontWeight: 'bold', marginBottom: 14 },
+    infoBannerText: { color: '#1e3a8a', fontSize: 13, flex: 1, marginLeft: 10, lineHeight: 18 },
+    sectionTitle: { color: '#0f172a', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
     emptyCard: {
-        backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, padding: 32,
-        alignItems: 'center', marginBottom: 22
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 32,
+        alignItems: 'center',
+        marginBottom: 18,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
     },
-    emptyText: { color: '#c4b5fd', fontSize: 17, marginTop: 12, fontWeight: '600' },
-    emptySubText: { color: '#aaa', fontSize: 14, marginTop: 6 },
+    emptyText: { color: '#475569', fontSize: 15, marginTop: 10, fontWeight: '600' },
+    emptySubText: { color: '#94a3b8', fontSize: 13, marginTop: 4 },
     reminderCard: {
-        backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 18, padding: 16,
-        marginBottom: 14, flexDirection: 'row', alignItems: 'center',
-        shadowColor: '#7c3aed', shadowOpacity: 0.08, shadowRadius: 8, elevation: 3
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
     },
     categoryBadge: {
-        width: 52, height: 52, borderRadius: 16, justifyContent: 'center', alignItems: 'center'
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
-    reminderTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f1545' },
-    reminderCategory: { fontSize: 13, color: '#64748b', marginTop: 2 },
-    timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-    reminderTime: { color: '#475569', fontSize: 14, fontWeight: '600' },
+    reminderTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
+    reminderCategory: { fontSize: 12, color: '#64748b', marginTop: 2 },
+    timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    reminderTime: { color: '#0f172a', fontSize: 13, fontWeight: '600' },
     statusBadge: {
-        marginTop: 10, paddingHorizontal: 16, paddingVertical: 10,
-        borderRadius: 20, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center'
+        marginTop: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4
     },
-    statusText: { fontSize: 14, fontWeight: 'bold', color: 'white' },
-    actionCol: { flexDirection: 'column', gap: 10, marginLeft: 10 },
+    statusText: { fontSize: 12, fontWeight: 'bold', color: 'white' },
+    actionCol: { flexDirection: 'column', gap: 6, marginLeft: 10 },
     editBtn: {
-        backgroundColor: '#f59e0b', padding: 11, borderRadius: 12,
-        justifyContent: 'center', alignItems: 'center', marginBottom: 6
+        backgroundColor: '#f59e0b',
+        padding: 8,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
     delBtn: {
-        backgroundColor: '#ef4444', padding: 11, borderRadius: 12,
-        justifyContent: 'center', alignItems: 'center'
+        backgroundColor: '#ef4444',
+        padding: 8,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center'
     },
     formCard: {
-        backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 24, padding: 24, marginTop: 10,
-        shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, elevation: 6
+        backgroundColor: '#ffffff',
+        borderRadius: 18,
+        padding: 20,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
     },
-    formTitle: { fontSize: 20, fontWeight: 'bold', color: '#3b185f', marginBottom: 18 },
-    label: { fontSize: 14, color: '#7c3aed', fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 8 },
-    pillContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    formTitle: { fontSize: 17, fontWeight: 'bold', color: '#0f172a', marginBottom: 14 },
+    label: { fontSize: 13, color: '#475569', fontWeight: '600', marginBottom: 6 },
+    pillContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     pill: {
-        backgroundColor: '#f0ebff', paddingHorizontal: 16, paddingVertical: 10,
-        borderRadius: 22, marginRight: 8, marginBottom: 6
+        backgroundColor: '#f1f5f9',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: '#e2e8f0'
     },
-    pillActive: { backgroundColor: '#7c3aed' },
-    pillText: { color: '#7c3aed', fontWeight: 'bold', fontSize: 14 },
+    pillActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+    pillText: { color: '#475569', fontWeight: '600', fontSize: 13 },
     pillTextActive: { color: 'white' },
     input: {
-        borderWidth: 1.5, borderColor: '#e9d5ff', backgroundColor: '#faf5ff',
-        borderRadius: 14, padding: 14, fontSize: 16, color: '#1f1545'
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        backgroundColor: '#f8fafc',
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 14,
+        color: '#0f172a'
     },
     timeInput: {
-        borderWidth: 1.5, borderColor: '#e9d5ff', backgroundColor: '#faf5ff',
-        borderRadius: 14, padding: 14, fontSize: 20, fontWeight: 'bold',
-        color: '#3b185f', letterSpacing: 1
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        backgroundColor: '#f8fafc',
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#0f172a'
     },
-    buttonRow: { flexDirection: 'row', marginTop: 24, gap: 12 },
+    buttonRow: { flexDirection: 'row', marginTop: 18, gap: 10 },
     saveBtn: {
-        backgroundColor: '#7c3aed', flex: 1, padding: 16, borderRadius: 16,
-        alignItems: 'center', flexDirection: 'row', justifyContent: 'center',
-        shadowColor: '#7c3aed', shadowOpacity: 0.4, shadowRadius: 8, elevation: 5
+        backgroundColor: '#2563eb',
+        flex: 1,
+        padding: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'center'
     },
     cancelBtn: {
-        backgroundColor: '#9ca3af', flex: 0.5, padding: 16, borderRadius: 16, alignItems: 'center'
+        backgroundColor: '#94a3b8',
+        flex: 0.4,
+        padding: 14,
+        borderRadius: 12,
+        alignItems: 'center'
     },
-    btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    btnText: { color: 'white', fontWeight: 'bold', fontSize: 14 }
 });

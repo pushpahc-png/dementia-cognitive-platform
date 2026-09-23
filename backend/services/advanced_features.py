@@ -27,13 +27,13 @@ def process_face_image(image_bytes: bytes):
             # We would normally do: DeepFace.find(img, db_path="known_faces_db/") 
             # For demonstration without a populated DB, we just confirm a face was found 
             # and return a simulated specific match
-            return {"status": "success", "person_name": "Rachana", "relation": "Daughter", "confidence": 0.95}
+            return {"status": "success", "person_name": "Family Member", "relation": "Caregiver/Family", "confidence": 0.95}
         else:
             return {"status": "error", "message": "No face detected in image."}
 
     except ImportError:
         # Fallback if deepface or cv2 isn't fully installed yet
-        return {"status": "success", "person_name": "Rachana", "relation": "Daughter (Mock)"}
+        return {"status": "success", "person_name": "Family Member", "relation": "Caregiver/Family (Mock)"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 

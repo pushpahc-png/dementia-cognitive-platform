@@ -1,4 +1,6 @@
+from typing import Optional, Tuple, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from models import domain as models
 from schemas import domain as schemas
 from core.security import get_password_hash
@@ -180,16 +182,42 @@ def link_patient_to_user(db: Session, patient_id: int, user: models.User):
         db.commit()
     return patient
 
-def link_patient_by_email(db: Session, email: str, user: models.User):
-    patient = db.query(models.User).filter(models.User.email == email, models.User.role == "Patient").first()
+def link_patient_by_email(db: Session, email: str, user: models.User, caregiver_email: Optional[str] = None):
+    clean_email = (email or '').strip().lower()
+    patient = db.query(models.User).filter(func.lower(models.User.email) == clean_email, models.User.role == "Patient").first()
     if patient:
         if user.role == "Caregiver":
             patient.caregiver_id = user.id
         elif user.role == "Doctor":
             patient.doctor_id = user.id
+            if caregiver_email:
+                clean_cg_email = (caregiver_email or '').strip().lower()
+                cg = db.query(models.User).filter(func.lower(models.User.email) == clean_cg_email, models.User.role == "Caregiver").first()
+                if cg:
+                    patient.caregiver_id = cg.id
         db.commit()
         db.refresh(patient)
     return patient
+
+def assign_caregiver_to_patient(db: Session, patient_id: int, caregiver_email: str, doctor: models.User) -> Tuple[Optional[models.User], Optional[str]]:
+    if doctor.role != "Doctor":
+        return None, "Only doctors can assign caregivers to patients"
+    patient = db.query(models.User).filter(models.User.id == patient_id, models.User.role == "Patient").first()
+    if not patient:
+        return None, "Patient not found"
+    clean_email = (caregiver_email or '').strip().lower()
+    caregiver = db.query(models.User).filter(func.lower(models.User.email) == clean_email, models.User.role == "Caregiver").first()
+    if not caregiver:
+        return None, f"No registered caregiver found with email '{caregiver_email}'. Please ensure the caregiver has registered an account."
+    patient.caregiver_id = caregiver.id
+    if patient.doctor_id is None:
+        patient.doctor_id = doctor.id
+    db.commit()
+    db.refresh(patient)
+    return patient, None
+
+def get_caregivers(db: Session) -> List[models.User]:
+    return db.query(models.User).filter(models.User.role == "Caregiver").all()
 
 def create_message(db: Session, message: schemas.MessageCreate, sender_id: int):
     db_message = models.Message(**message.model_dump(), sender_id=sender_id)
